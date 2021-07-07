@@ -1,16 +1,20 @@
-clear all;
-close all;
-data_sheet_path = 'C:\Users\nico\pen_proj\';
-folder = '';
+function quat9_0705(file)
 
-%folder = 'test_0705\';
-file = 'letter_test_0705'; % abcde
-file = 'letter_test_0705_2'; % abcde
-file = 'test1';
+    %clear all;
+    close all;
+    data_sheet_path = 'C:\Users\nico\pen_proj\data\';
+    folder = '';
+
+    %folder = 'test_0705\';
+%     file = 'letter_test_0705'; % abcde
+%     file = 'letter_test_0705_2'; % abcde
+%     file = 'test1';
 
 
-path = [data_sheet_path folder file '.csv'];
-process_file(path);
+    path = [data_sheet_path folder file '.csv'];
+    process_file(path);
+    clear all;
+end
 
 function process_file(path)
     q_in = [];
