@@ -1,23 +1,17 @@
-function quat9_0705(file)
+% returns chaincodes, each row vector is a chaincode
 
-    %clear all;
+function chaincodes = quat9_0705(file)
     close all;
     data_sheet_path = 'C:\Users\nico\pen_proj\data\';
     folder = '';
 
-    %folder = 'test_0705\';
-%     file = 'letter_test_0705'; % abcde
-%     file = 'letter_test_0705_2'; % abcde
-%     file = 'test1';
-
-
     path = [data_sheet_path folder file '.csv'];
-    process_file(path);
-    clear all;
+    chaincodes = process_file(path);
 end
 
-function process_file(path)
+function chaincodes_ret = process_file(path)
     q_in = [];
+    chaincodes = [];
     g_input = readtable(path);
 
     M = table2array(g_input);
@@ -49,14 +43,15 @@ function process_file(path)
         
 %         print = ['num = ' num2str(j) '; len = ' num2str(size(q1,1))] % letter number and length
         
-        process_data(quat_in, j);
+        chaincodes = [chaincodes; process_data(quat_in, j).'];
         q_in = [q_in; q0 q1 q2 q3];
 %         break; % one letter only
     end
+    chaincodes_ret = chaincodes;
 %     process_data(q_in, j); % whole word
 end
 
-function process_data(q, num)
+function chaincode = process_data(q, num)
     srt_i = 1;
     end_i = size(q(:,1),1);
 
@@ -172,7 +167,7 @@ function process_data(q, num)
     plot(z_fit,x_fit, '-og', 'LineWidth', 2);
     
     [z_fit,x_fit] = normalize_char(z_fit,x_fit,num);
-    zx_dist = calc_dist(z_fit,x_fit)
+%     zx_dist = calc_dist(z_fit,x_fit)
 
     p1 = size(x_fit,1);
     resample1 = ['num = ' num2str(num), '; len = ' num2str(p1)]
@@ -180,7 +175,7 @@ function process_data(q, num)
     hold off;
 %     zx_dist = calc_dist(z_fit,x_fit) % distance isnt perfectly uniformly spaced but mostly uniform
 
-    chaincode = chain_code(z_fit,x_fit)
+    chaincode = chain_code(z_fit,x_fit);
     
 
 end
@@ -191,7 +186,7 @@ function chaincode = chain_code(x,y,num) % parameterizable by # of directions
 
     x_dist = x(2:end) - x(1:end-1);
     y_dist = y(2:end) - y(1:end-1);
-    angle = atan(x_dist./y_dist)
+    angle = atan(x_dist./y_dist);
     chaincode = zeros(size(angle,1),1)-1;
     
     % upper half
