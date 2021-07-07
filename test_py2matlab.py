@@ -13,7 +13,6 @@ print(f'You entered {value}')
 eng = matlab.start_matlab()
 print("started matlab")
 chaincodes = np.array(eng.quat9_0705(value,nargout=1)).astype(int)
-chaincodes_resub = re.sub('[\[\]]', '', np.array_str(chaincodes))
 #chaincodes_str = np.array2string(chaincodes_resub, separator=',')
 chaincodes_str = re.sub('[\[\]]', '', np.array2string(chaincodes, separator=','))
 print("printing chaincodes")
@@ -40,13 +39,4 @@ print("End initialization")
 
 while True:
     i = 0
-
-# main loop
-#while True:
-value = input("Enter name of output file:\n")
-print(f'You entered {value}')
-
-
-
-
 
