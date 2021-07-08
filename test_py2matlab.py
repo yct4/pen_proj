@@ -23,7 +23,7 @@ print(f'\nchaincodes # rows = {chaincodes_len}')
 
 actletters = ""
 for i in range(chaincodes_len):
-    actletters += '\n' + input(f'Enter actual classification of letter {i+1}:\n')
+    actletters += input(f'Enter actual classification of letter {i+1}:\n') + '\n'
 actletters_len = len(actletters) 
 print(f'\nActual Letter Classifications:\n{actletters[0:actletters_len]}\n')
 
@@ -31,8 +31,13 @@ print(f'\nActual Letter Classifications:\n{actletters[0:actletters_len]}\n')
 filename = f'chaincodes\{value}_chaincodes.csv'
 file1 = open(filename, "w")
 file1.writelines(chaincodes_str)
+file1.close()
+
+filename = f'chaincodes\{value}_chaincodes_classify.csv'
+file1 = open(filename, "w")
 file1.writelines(actletters[0:actletters_len])
 file1.close()
+
 
 print("Chaincodes file: {value}_chaincodes.csv is saved in ./chaincodes")
 print("End initialization")
