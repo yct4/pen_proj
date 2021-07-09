@@ -27,7 +27,7 @@ while True:
     filename = f'data\\{value}.csv'
     file1 = open(filename, "w")
 
-    value = input("Press Enter to start recording\n")
+    temp = input("Press Enter to start recording\n")
     print("Press Space to stop recording")
     
     while True:
