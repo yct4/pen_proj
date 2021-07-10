@@ -22,8 +22,10 @@ chaincodes_len = len(chaincodes)
 print(f'\nchaincodes # rows = {chaincodes_len}')
 
 actletters = ""
+j = chaincodes_len
 for i in range(chaincodes_len):
-    actletters += input(f'Enter actual classification of letter {i+1}:\n') + '\n'
+    actletters = input(f'Enter actual classification of letter {j}:\n') + '\n' + actletters
+    j -= 1
 actletters_len = len(actletters) 
 print(f'\nActual Letter Classifications:\n{actletters[0:actletters_len]}\n')
 

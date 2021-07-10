@@ -1,4 +1,8 @@
 % returns chaincodes, each row vector is a chaincode
+% close all;
+% clear all;
+% filename = 'alphabet_0709';
+% output = quat9_0705(filename);
 
 function chaincodes = quat9_0705(file)
     close all;
@@ -12,6 +16,7 @@ end
 function chaincodes_ret = process_file(path)
     q_in = [];
     chaincodes = [];
+    init_lens = [];
     g_input = readtable(path);
 
     M = table2array(g_input);
@@ -42,16 +47,21 @@ function chaincodes_ret = process_file(path)
         quat_in = [q0 q1 q2 q3];
         
 %         print = ['num = ' num2str(j) '; len = ' num2str(size(q1,1))] % letter number and length
-        
-        chaincodes = [chaincodes; process_data(quat_in, j).'];
+        [chaincode, init_len] = process_data(quat_in, j);
+        init_lens = [init_lens; init_len];
+        chaincodes = [chaincodes; chaincode.'];
         q_in = [q_in; q0 q1 q2 q3];
 %         break; % one letter only
     end
+%     figure; hold on; grid on;
+%     bar([1:1:size(init_lens,1)], init_lens);
+%     hold off;
+    
     chaincodes_ret = chaincodes;
-%     process_data(q_in, j); % whole word
+%     process_data(q_in, -1); % whole word
 end
 
-function chaincode = process_data(q, num)
+function [chaincode,init_len] = process_data(q, num)
     srt_i = 1;
     end_i = size(q(:,1),1);
 
@@ -85,15 +95,6 @@ function chaincode = process_data(q, num)
     y_fit = smooth(y, degree);
     z_fit = smooth(z, degree);
     
-    % PLOTTING
-%     figure; hold on; title(['x,y raw and smooth. letter: ' num2str(num)]); grid on;
-%     plot(x_fit, '-b', 'LineWidth', 2);
-%     plot(y_fit, '-r', 'LineWidth', 2);
-%     plot(z_fit, '-g', 'LineWidth', 2);
-% %     yyaxis right; grid on;
-%     legend('x','y','z');
-%     hold off;
-    
 %     figure; hold on; grid on; title(['xyz b4 rotation. letter: ' num2str(num)]);
 %     view([0 20]);
 %     xlabel('x-axis');
@@ -122,7 +123,7 @@ function chaincode = process_data(q, num)
     z_scaled = (b - a) .* (z_fit - min(z_fit)) ./ (max(z_fit) - min(z_fit)) + a;
     z_fit = z_scaled;
     
-    figure; hold on; title(['x,y raw and smooth. letter: ' num2str(num)]); grid on;
+%     figure; hold on; title(['x,y raw and smooth. letter: ' num2str(num)]); grid on;
 %     plot(z_fit(srt_i:end_i),x_fit(srt_i:end_i), '-b', 'LineWidth', 2); % original, no truncation
     
     % truncate at first z-maximum
@@ -142,6 +143,18 @@ function chaincode = process_data(q, num)
     z_scaled = (b - a) .* (z_fit - min(z_fit)) ./ (max(z_fit) - min(z_fit)) + a;
     z_fit = z_scaled;
     
+%     % PLOTTING
+%     %if (num == -1)
+%         figure; hold on; title(['x,y raw and smooth. letter: ' num2str(num)]); grid on;
+%         plot(x_fit, '-b', 'LineWidth', 2);
+% %         plot(y_fit, '-r', 'LineWidth', 2);
+%         plot(z_fit, '-g', 'LineWidth', 2);
+%     %     yyaxis right; grid on;
+%         legend('x','z');
+%         hold off;
+%     %end
+    
+    figure; hold on; title(['x,y raw and smooth. letter: ' num2str(num)]); grid on;
     plot(z_fit,x_fit, '-r', 'LineWidth', 2);
     
     % if first z value is 5, truncate 
@@ -151,7 +164,6 @@ function chaincode = process_data(q, num)
     cmp = zmax_vals < 5;
     temp = find(cmp);
     th = max(zmax_vals(temp));
-    
     if (z_fit(1) == b && size(th,1) > 0)
         cmp = z_fit < th;
         temp = find(cmp);
@@ -164,13 +176,40 @@ function chaincode = process_data(q, num)
         z_fit = z_scaled;
     end
     
+    size_th = 60;
+    if (size(x_fit,1) > size_th)
+        x_fit = x_fit(size(x_fit,1) - (size_th-1):end); % truncate
+        y_fit = y_fit(size(y_fit,1) - (size_th-1):end); % truncate
+        z_fit = z_fit(size(z_fit,1) - (size_th-1):end); % truncate
+        [x_fit, y_fit] = scale_xy(x_fit, y_fit, a, b);
+        z_scaled = (b - a) .* (z_fit - min(z_fit)) ./ (max(z_fit) - min(z_fit)) + a;
+        z_fit = z_scaled;
+    end
+    
+    truncate_start = 10;
+    for i = 1:1:5
+        if (z_fit(1) == b && size(z_fit,1) > truncate_start)
+            x_fit = x_fit(truncate_start:end); % truncate
+            y_fit = y_fit(truncate_start:end); % truncate
+            z_fit = z_fit(truncate_start:end); % truncate
+            [x_fit, y_fit] = scale_xy(x_fit, y_fit, a, b);
+            z_scaled = (b - a) .* (z_fit - min(z_fit)) ./ (max(z_fit) - min(z_fit)) + a;
+            z_fit = z_scaled;
+        else 
+            break;
+        end
+    end
+    
     plot(z_fit,x_fit, '-og', 'LineWidth', 2);
+    
+%     before_resampling = ['num = ' num2str(num), '; len = ' num2str(size(x_fit,1))]
+    init_len = size(x_fit,1);
     
     [z_fit,x_fit] = normalize_char(z_fit,x_fit,num);
 %     zx_dist = calc_dist(z_fit,x_fit)
 
     p1 = size(x_fit,1);
-    resample1 = ['num = ' num2str(num), '; len = ' num2str(p1)]
+%     resample1 = ['num = ' num2str(num), '; len = ' num2str(p1)]
     plot(z_fit,x_fit,'o-', 'LineWidth', 2); 
     hold off;
 %     zx_dist = calc_dist(z_fit,x_fit) % distance isnt perfectly uniformly spaced but mostly uniform
