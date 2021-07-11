@@ -55,7 +55,7 @@ while True:
     actletters = ""
     j = chaincodes_len
     for i in range(chaincodes_len):
-        actletters += input(f'Enter actual classification of letter {j}:\n').strip() + '\n'
+        actletters = input(f'Enter actual classification of letter {j}:\n').strip() + '\n' + actletters
         j -= 1
     actletters_len = len(actletters) 
     print(f'\nActual Letter Classifications:\n{actletters[0:actletters_len]}\n')
@@ -74,6 +74,7 @@ while True:
     
     print("Chaincodes file: {value}_chaincodes.csv is saved in ./chaincodes")
     print("End initialization")
+    break # no infinite loop
 
 
 

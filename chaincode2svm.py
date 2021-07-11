@@ -98,6 +98,7 @@ num_correct = pred[perf]
 perf_rate = len(num_correct) / len(pred)
 #print(f'performance: {perf}')
 print(f'perf rate: {perf_rate * 100} %')
+print(f'correctly classified: {num_correct}')
 
 #print(clf)
 #print(fit_svm)

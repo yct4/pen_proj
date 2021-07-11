@@ -176,15 +176,15 @@ function [chaincode,init_len] = process_data(q, num)
         z_fit = z_scaled;
     end
     
-    size_th = 60;
-    if (size(x_fit,1) > size_th)
-        x_fit = x_fit(size(x_fit,1) - (size_th-1):end); % truncate
-        y_fit = y_fit(size(y_fit,1) - (size_th-1):end); % truncate
-        z_fit = z_fit(size(z_fit,1) - (size_th-1):end); % truncate
-        [x_fit, y_fit] = scale_xy(x_fit, y_fit, a, b);
-        z_scaled = (b - a) .* (z_fit - min(z_fit)) ./ (max(z_fit) - min(z_fit)) + a;
-        z_fit = z_scaled;
-    end
+%     size_th = 60;
+%     if (size(x_fit,1) > size_th)
+%         x_fit = x_fit(size(x_fit,1) - (size_th-1):end); % truncate
+%         y_fit = y_fit(size(y_fit,1) - (size_th-1):end); % truncate
+%         z_fit = z_fit(size(z_fit,1) - (size_th-1):end); % truncate
+%         [x_fit, y_fit] = scale_xy(x_fit, y_fit, a, b);
+%         z_scaled = (b - a) .* (z_fit - min(z_fit)) ./ (max(z_fit) - min(z_fit)) + a;
+%         z_fit = z_scaled;
+%     end
     
     truncate_start = 10;
     for i = 1:1:5
