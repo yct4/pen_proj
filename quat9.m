@@ -2,9 +2,9 @@
 % close all;
 % clear all;
 % filename = 'g_10';
-% output = quat9_0705(filename);
+% output = quat9(filename);
 
-function chaincodes = quat9_0705(file)
+function chaincodes = quat9(file)
     close all;
     data_sheet_path = 'C:\Users\nico\pen_proj\data\';
     folder = '';
