@@ -84,12 +84,10 @@ print(classes_test)
 
 
 # SVM rbf kernel
-#rbf_svc = svm.SVC(kernel='rbf')
 clf = svm.SVC(kernel='rbf', decision_function_shape='ovr')
-#clf = svm.SVC(kernel='rbf')
 fit_svm = clf.fit(chaincodes_train, classes_train)
-dec = clf.decision_function(chaincodes_train)
-dec.shape[1] # 4 classes: 4*3/2 = 6
+#dec = clf.decision_function(chaincodes_train)
+#print(f'number of classes: {dec.shape[1]}') # number of classes
 
 pred = clf.predict(chaincodes_test)
 
