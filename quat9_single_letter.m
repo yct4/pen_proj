@@ -1,7 +1,7 @@
 % returns chaincodes, each row vector is a chaincode
 close all;
 clear all;
-filename = 'test_single_letter_5';
+filename = 'test_single_letter_4';
 output = quat9(filename);
 
 function chaincodes = quat9(file)
@@ -17,6 +17,7 @@ function chaincodes_ret = process_file(path)
     q_in = [];
     chaincodes = [];
     init_lens = [];
+    new_lens = [];
     g_input = readtable(path);
 
     M = table2array(g_input);
@@ -47,8 +48,9 @@ function chaincodes_ret = process_file(path)
         quat_in = [q0 q1 q2 q3];
         
 %         print = ['num = ' num2str(j) '; len = ' num2str(size(q1,1))] % letter number and length
-        [chaincode, init_len] = process_data(quat_in, j);
+        [chaincode, init_len, new_len] = process_data(quat_in, j);
         init_lens = [init_lens; init_len];
+        new_lens = [new_lens; new_len];
         
         valid_chaincode = init_len > 15; % at least 15 samples long
         if (valid_chaincode)
@@ -66,11 +68,11 @@ function chaincodes_ret = process_file(path)
     
     chaincodes_ret = chaincodes;
     chaincodes_len = size(chaincodes, 1)
-    init_lens
-%     process_data(q_in, -1); % whole word
+    lengths = [[1:1:size(init_lens,1)].', init_lens, new_lens]
+    process_data(q_in, -1); % whole word
 end
 
-function [chaincode,init_len] = process_data(q, num)
+function [chaincode,init_len,new_len] = process_data(q, num)
     srt_i = 1;
     end_i = size(q(:,1),1);
 
@@ -124,7 +126,17 @@ function [chaincode,init_len] = process_data(q, num)
     z_scaled = (b - a) .* (z_fit - min(z_fit)) ./ (max(z_fit) - min(z_fit)) + a;
     z_fit = z_scaled;
     
+    
     init_len = size(x_fit,1);
+    
+%     figure; hold on; title('z over time'); grid on;
+%     plot(z_fit, '-og');
+%     hold off;
+    
+    % truncate
+    [z_fit,x_fit] = truncate_data(z_fit,x_fit,y_fit,num);
+    new_len = size(z_fit,1);
+    
     figure; hold on; title(['letter: ' num2str(num) ', num points: ' num2str(init_len)]); grid on;
     plot(z_fit,x_fit, '-ob', 'LineWidth', 2);
 
@@ -150,6 +162,96 @@ function [chaincode,init_len] = process_data(q, num)
     chaincode = chain_code(z_fit,x_fit);
     
 
+end
+
+function [ret_x,ret_y] = truncate_data(x,y,z,num)
+    start = x(1);
+    if (start < 2.5) % new letter
+        xgrad = gradient(x);
+        cmp = xgrad < 0.02;
+        temp = find(cmp);
+        new_start = temp(1);
+        x = x(new_start:end);
+        y = y(new_start:end);
+        [x, y] = scale_xy(x, y, 1, 5);
+        
+        start = x(1);
+        if (start > x(end) && x(end) > 3)
+            cmp = x < x(end);
+            temp = find(cmp);
+            if (size(temp,1) > 0)
+                new_start = temp(1);
+%                 print = num
+                x = x(new_start:end);
+                y = y(new_start:end);
+                [x, y] = scale_xy(x, y, 1, 5);
+            end
+        end
+        
+        xgrad = gradient(x);
+        ygrad = gradient(y);
+        xcmp = xgrad < 0;
+        ycmp = ygrad < 0;
+        xtemp = find(~xcmp);
+        ytemp = find(~ycmp);
+        temp = setxor(xtemp,ytemp);
+        if (size(temp,1) > 0)
+            new_start = temp(1);
+%             print2 = num
+            x = x(new_start:end);
+            y = y(new_start:end);
+            [x, y] = scale_xy(x, y, 1, 5);
+        end
+        
+        ret_x = x;
+        ret_y = y;
+        return;
+    end
+    % new word   
+    
+    xlen = size(x,1);
+    th = 60;
+    if(xlen > th)
+        x = x(xlen-th:end);
+        y = y(xlen-th:end);
+        [x, y] = scale_xy(x, y, 1, 5);
+    end
+    
+    xgrad = gradient(x);
+    cmp = xgrad > -0.02;
+    temp = find(cmp);
+    new_start = temp(1);
+    x = x(new_start:end);
+    y = y(new_start:end);
+    [x, y] = scale_xy(x, y, 1, 5);
+    
+    print = ['letter: ' num2str(num) ', new length: ' num2str(size(x,1))]
+    
+%     xlen = size(x,1);
+%     th = 50;
+%     if(xlen > th)
+%         x = x(xlen-th:end);
+%         y = y(xlen-th:end);
+%         [x, y] = scale_xy(x, y, 1, 5);
+%     end
+    
+    % ROTATION z-AXIS
+%     R = rotz(-45);
+%     Ar_mat = [];
+%     for i = 1:1:size(x,1)
+%         Ab(1,1) = x(i);
+%         Ab(2,1) = y(i);
+%         Ab(3,1) = z(i);
+%         Ar = (R*Ab).';
+%         Ar_mat = [Ar_mat; Ar];  
+%     end
+%     x = Ar_mat(:,1);
+%     y = Ar_mat(:,2);
+%     z = Ar_mat(:,3);
+%     [x, y] = scale_xy(x, y, 1, 5);
+    
+    ret_x = x;
+    ret_y = y;
 end
 
 function chaincode = chain_code(x,y,num) % parameterizable by # of directions
