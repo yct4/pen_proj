@@ -105,42 +105,61 @@ function [chaincode,init_len,new_len] = process_data(q, num)
     x_fit = smooth(x, degree);
     y_fit = smooth(y, degree);
     z_fit = smooth(z, degree);
-
-    % ROTATION y-AXIS
-    R = roty(-45);
-    Ar_mat = [];
-    for i = 1:1:size(x_fit,1)
-        Ab(1,1) = x_fit(i);
-        Ab(2,1) = y_fit(i);
-        Ab(3,1) = z_fit(i);
-        Ar = (R*Ab).';
-        Ar_mat = [Ar_mat; Ar];  
-    end
     
-    x_fit = Ar_mat(:,1);
-    y_fit = Ar_mat(:,2);
-    z_fit = Ar_mat(:,3);
+    % ROTATE Y-AXIS
+    [x_fit,y_fit,z_fit] = rotate_y_axis(x_fit,y_fit,z_fit,-45); % angle in degrees
 
     x_fit = -x_fit;
     [x_fit, y_fit] = scale_xy(x_fit, y_fit, a, b);
     z_scaled = (b - a) .* (z_fit - min(z_fit)) ./ (max(z_fit) - min(z_fit)) + a;
     z_fit = z_scaled;
-    
-    
+      
     init_len = size(x_fit,1);
     
 %     figure; hold on; title('z over time'); grid on;
 %     plot(z_fit, '-og');
 %     hold off;
     
-    % truncate
-    [z_fit,x_fit] = truncate_data(z_fit,x_fit,y_fit,num);
-    new_len = size(z_fit,1);
-    
     figure; hold on; title(['letter: ' num2str(num) ', num points: ' num2str(init_len)]); grid on;
+    subplot(2,2,1);
+    plot(z_fit, '-og');
+    subplot(2,2,2);
     plot(z_fit,x_fit, '-ob', 'LineWidth', 2);
+    
+    % truncate
+    [z_fit,x_fit,zxgrad] = truncate_data(z_fit,x_fit,y_fit,num);
+    new_len = size(z_fit,1);
+    hold on;
+    plot(z_fit,x_fit,'-og', 'LineWidth',2);
+    
+    P = polyfit(z_fit,x_fit,1);
+    xlin = 1:1:5;
+    ylin = P(1)*xlin+P(2);
+    title(['fitted slope: ' num2str(P(1))])
+    plot(xlin,ylin,'r-.');
+    
+    slope = P(1);
+    if (slope < -0.5 && slope > -1)
+        % rotate CW s.t. slope = vertical
+        angle = atan(1/slope) * 180/pi / 2;
+        print = ['letter: ' num2str(num) ', angle: ' num2str(angle)]
+        [x_fit,y_fit,z_fit] = rotate_y_axis(x_fit,y_fit,z_fit,angle);
+        [z_fit, x_fit] = scale_xy(z_fit, x_fit, a, b);
+        plot(z_fit, x_fit, '-om', 'LineWidth', 2);
+        P = polyfit(z_fit,x_fit,1);
+        xlin = 1:1:5;
+        ylin = P(1)*xlin+P(2);
+        title(['fitted slope: ' num2str(P(1))])
+        plot(xlin,ylin,'-r', 'LineWidth', 2);
+    elseif (slope > 0.2)
+        % rotate CCW
+    end
 
-    hold off;
+%     hold off;
+%     figure; title(['letter: ' num2str(num)]); hold on; grid on;
+%     plot(zxgrad, '-ob');
+%     hold off;
+    
 %     before_resampling = ['num = ' num2str(num), '; len = ' num2str(size(x_fit,1))]
     
     if (init_len < 15)
@@ -149,6 +168,17 @@ function [chaincode,init_len,new_len] = process_data(q, num)
     end
     
     [z_fit,x_fit] = normalize_char(z_fit,x_fit,num);
+    
+    zxgrad = gradient(x_fit) ./ gradient(z_fit);
+%     figure; hold on; title(['letter: ' num2str(num)]); grid on;
+    subplot(2,2,3);
+    plot(zxgrad, '-ob');
+%     hold off;
+%     figure; hold on; title(['letter: ' num2str(num)]); grid on;
+    subplot(2,2,4);
+    h = histogram(zxgrad);
+    hold off;
+    
 %     zx_dist = calc_dist(z_fit,x_fit)
 
     p1 = size(x_fit,1);
@@ -164,7 +194,7 @@ function [chaincode,init_len,new_len] = process_data(q, num)
 
 end
 
-function [ret_x,ret_y] = truncate_data(x,y,z,num)
+function [ret_x,ret_y,xygrad] = truncate_data(x,y,z,num)
     start = x(1);
     if (start < 2.5) % new letter
         xgrad = gradient(x);
@@ -203,6 +233,8 @@ function [ret_x,ret_y] = truncate_data(x,y,z,num)
             [x, y] = scale_xy(x, y, 1, 5);
         end
         
+        xygrad = ygrad ./ xgrad;
+        
         ret_x = x;
         ret_y = y;
         return;
@@ -225,31 +257,12 @@ function [ret_x,ret_y] = truncate_data(x,y,z,num)
     y = y(new_start:end);
     [x, y] = scale_xy(x, y, 1, 5);
     
-    print = ['letter: ' num2str(num) ', new length: ' num2str(size(x,1))]
+    print = ['letter: ' num2str(num) ', new length: ' num2str(size(x,1))];
     
-%     xlen = size(x,1);
-%     th = 50;
-%     if(xlen > th)
-%         x = x(xlen-th:end);
-%         y = y(xlen-th:end);
-%         [x, y] = scale_xy(x, y, 1, 5);
-%     end
-    
-    % ROTATION z-AXIS
-%     R = rotz(-45);
-%     Ar_mat = [];
-%     for i = 1:1:size(x,1)
-%         Ab(1,1) = x(i);
-%         Ab(2,1) = y(i);
-%         Ab(3,1) = z(i);
-%         Ar = (R*Ab).';
-%         Ar_mat = [Ar_mat; Ar];  
-%     end
-%     x = Ar_mat(:,1);
-%     y = Ar_mat(:,2);
-%     z = Ar_mat(:,3);
-%     [x, y] = scale_xy(x, y, 1, 5);
-    
+    xgrad = gradient(x);
+    ygrad = gradient(y);
+    xygrad = ygrad ./ xgrad;
+
     ret_x = x;
     ret_y = y;
 end
@@ -346,6 +359,23 @@ end
 function [x_scaled,y_scaled] = scale_xy(x,y,a,b)
     x_scaled = (b - a) .* (x - min(x)) ./ (max(x) - min(x)) + a;
     y_scaled = (b - a) .* (y - min(y)) ./ (max(y) - min(y)) + a;
+end
+
+function [ret_x,ret_y,ret_z] = rotate_y_axis(x_fit,y_fit,z_fit,angle)
+    % ROTATION y-AXIS
+    R = roty(angle);
+    Ar_mat = [];
+    for i = 1:1:size(x_fit,1)
+        Ab(1,1) = x_fit(i);
+        Ab(2,1) = y_fit(i);
+        Ab(3,1) = z_fit(i);
+        Ar = (R*Ab).';
+        Ar_mat = [Ar_mat; Ar];  
+    end
+    
+    ret_x = Ar_mat(:,1);
+    ret_y = Ar_mat(:,2);
+    ret_z = Ar_mat(:,3);
 end
 
 function R = rotx(degrees)

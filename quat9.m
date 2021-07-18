@@ -1,8 +1,8 @@
 % returns chaincodes, each row vector is a chaincode
-% close all;
-% clear all;
-% filename = 'g_10';
-% output = quat9(filename);
+close all;
+clear all;
+filename = 'test_single_letter_5';
+output = quat9(filename);
 
 function chaincodes = quat9(file)
     close all;
@@ -17,6 +17,7 @@ function chaincodes_ret = process_file(path)
     q_in = [];
     chaincodes = [];
     init_lens = [];
+    new_lens = [];
     g_input = readtable(path);
 
     M = table2array(g_input);
@@ -31,13 +32,10 @@ function chaincodes_ret = process_file(path)
         input_arr = D(m);
         in = cell2mat(input_arr);
 
-        if size(in, 1) < 20 % TODO threshold, was 10
+        if size(in, 1) < 20
             continue;
         end
         j = j + 1;
-%         if (j == 1) % skip first letter bc not part of recording
-%             continue;
-%         end
         
         quat_in = in(1:end,1:end) / 1073741824;
         q1 = quat_in(1:end,1);
@@ -47,8 +45,9 @@ function chaincodes_ret = process_file(path)
         quat_in = [q0 q1 q2 q3];
         
 %         print = ['num = ' num2str(j) '; len = ' num2str(size(q1,1))] % letter number and length
-        [chaincode, init_len] = process_data(quat_in, j);
+        [chaincode, init_len, new_len] = process_data(quat_in, j);
         init_lens = [init_lens; init_len];
+        new_lens = [new_lens; new_len];
         
         valid_chaincode = init_len > 15; % at least 15 samples long
         if (valid_chaincode)
@@ -58,18 +57,15 @@ function chaincodes_ret = process_file(path)
         end
         
         q_in = [q_in; q0 q1 q2 q3];
-%         break; % one letter only
     end
-%     figure; hold on; grid on;
-%     bar([1:1:size(init_lens,1)], init_lens);
-%     hold off;
     
     chaincodes_ret = chaincodes;
-    chaincodes_len = size(chaincodes, 1);
-%     process_data(q_in, -1); % whole word
+    chaincodes_len = size(chaincodes, 1)
+    lengths = [[1:1:size(init_lens,1)].', init_lens, new_lens]
+    process_data(q_in, -1); % whole word
 end
 
-function [chaincode,init_len] = process_data(q, num)
+function [chaincode,init_len,new_len] = process_data(q, num)
     srt_i = 1;
     end_i = size(q(:,1),1);
 
@@ -103,152 +99,93 @@ function [chaincode,init_len] = process_data(q, num)
     y_fit = smooth(y, degree);
     z_fit = smooth(z, degree);
     
-%     figure; hold on; grid on; title(['xyz b4 rotation. letter: ' num2str(num)]);
-%     view([0 20]);
-%     xlabel('x-axis');
-%     ylabel('y-axis');
-%     zlabel('z-axis');
-%     plot3(x_fit(srt_i:end_i),y_fit(srt_i:end_i),z_fit(srt_i:end_i));
-%     hold off;
-
-    % ROTATION y-AXIS
-    R = roty(-45);
-    Ar_mat = [];
-    for i = 1:1:size(x_fit,1)
-        Ab(1,1) = x_fit(i);
-        Ab(2,1) = y_fit(i);
-        Ab(3,1) = z_fit(i);
-        Ar = (R*Ab).';
-        Ar_mat = [Ar_mat; Ar];  
-    end
-    
-    x_fit = Ar_mat(:,1);
-    y_fit = Ar_mat(:,2);
-    z_fit = Ar_mat(:,3);
+    % ROTATE Y-AXIS
+    [x_fit,y_fit,z_fit] = rotate_y_axis(x_fit,y_fit,z_fit,-45); % angle in degrees
 
     x_fit = -x_fit;
     [x_fit, y_fit] = scale_xy(x_fit, y_fit, a, b);
     z_scaled = (b - a) .* (z_fit - min(z_fit)) ./ (max(z_fit) - min(z_fit)) + a;
     z_fit = z_scaled;
+      
+    init_len = size(x_fit,1);
     
-    % start plotting
-%     figure; hold on; title(['x,y raw and smooth. letter: ' num2str(num)]); grid on;
-%     plot(z_fit(srt_i:end_i),x_fit(srt_i:end_i), '-b', 'LineWidth', 2); % original, no truncation
-%     hold off;
-    
-    % truncate at first z-maximum
-    zmax = islocalmax(z_fit);
-    zmax_indices = find(zmax);
-    
-    if (size(zmax_indices,1) > 0)
-        start_sample = zmax_indices(1);
-    else 
-        start_sample = 1;
-    end
-    
-    x_fit = x_fit(start_sample:end); % truncate
-    y_fit = y_fit(start_sample:end); % truncate
-    z_fit = z_fit(start_sample:end); % truncate
-    [x_fit, y_fit] = scale_xy(x_fit, y_fit, a, b);
-    z_scaled = (b - a) .* (z_fit - min(z_fit)) ./ (max(z_fit) - min(z_fit)) + a;
-    z_fit = z_scaled;
-    
-%     plot(z_fit,x_fit, '-og', 'LineWidth', 2);
-%     hold off; % end plotting
-    
-%     % PLOTTING
-%     %if (num == -1)
-%         figure; hold on; title(['x,y raw and smooth. letter: ' num2str(num)]); grid on;
-%         plot(x_fit, '-b', 'LineWidth', 2);
-% %         plot(y_fit, '-r', 'LineWidth', 2);
-%         plot(z_fit, '-g', 'LineWidth', 2);
-%     %     yyaxis right; grid on;
-%         legend('x','z');
-%         hold off;
-%     %end
-    
-    figure; hold on; title(['x,y raw and smooth. letter: ' num2str(num)]); grid on;
-    plot(z_fit,x_fit, '-r', 'LineWidth', 2);
-    
-    % if first z value is 5, truncate 
-    zmax = islocalmax(z_fit);
-    zmax_indices = find(zmax);
-    zmax_vals = z_fit(zmax_indices);
-    cmp = zmax_vals < 5;
-    temp = find(cmp);
-    th = max(zmax_vals(temp));
-    if (z_fit(1) == b && size(th,1) > 0)
-        cmp = z_fit < th;
-        temp = find(cmp);
-        start_sample = temp(1);
-        x_fit = x_fit(start_sample:end); % truncate
-        y_fit = y_fit(start_sample:end); % truncate
-        z_fit = z_fit(start_sample:end); % truncate
-        [x_fit, y_fit] = scale_xy(x_fit, y_fit, a, b);
-        z_scaled = (b - a) .* (z_fit - min(z_fit)) ./ (max(z_fit) - min(z_fit)) + a;
-        z_fit = z_scaled;
-    end
-    
+    figure; hold on; title(['letter: ' num2str(num) ', num points: ' num2str(init_len)]); grid on;
+    subplot(1,2,1);
+    plot(z_fit, '-og');
+    subplot(1,2,2); hold on;
     plot(z_fit,x_fit, '-ob', 'LineWidth', 2);
     
-%     size_th = 60;
-%     if (size(x_fit,1) > size_th)
-%         x_fit = x_fit(size(x_fit,1) - (size_th-1):end); % truncate
-%         y_fit = y_fit(size(y_fit,1) - (size_th-1):end); % truncate
-%         z_fit = z_fit(size(z_fit,1) - (size_th-1):end); % truncate
-%         [x_fit, y_fit] = scale_xy(x_fit, y_fit, a, b);
-%         z_scaled = (b - a) .* (z_fit - min(z_fit)) ./ (max(z_fit) - min(z_fit)) + a;
-%         z_fit = z_scaled;
-%     end
-    
-    truncate_start = 10;
-    for i = 1:1:5
-        if (z_fit(1) == b && size(z_fit,1) > truncate_start)
-            x_fit = x_fit(truncate_start:end); % truncate
-            y_fit = y_fit(truncate_start:end); % truncate
-            z_fit = z_fit(truncate_start:end); % truncate
-            [x_fit, y_fit] = scale_xy(x_fit, y_fit, a, b);
-            z_scaled = (b - a) .* (z_fit - min(z_fit)) ./ (max(z_fit) - min(z_fit)) + a;
-            z_fit = z_scaled;
-        else 
-            break;
-        end
-    end
-    
-    plot(z_fit,x_fit,'-om', 'LineWidth', 2); 
-    
-    % truncate beginning left-strokes
-    num;
-    zgrad = gradient(z_fit);
-    cmp = zgrad > 0;
-    temp = find(cmp);
-    start_sample = temp(1);
-    x_fit = x_fit(start_sample:end); % truncate
-    z_fit = z_fit(start_sample:end); % truncate
-    [x_fit, z_fit] = scale_xy(x_fit, z_fit, a, b);
-    
-    print = ['letter = ', num2str(num), '. truncate at: ', num2str(start_sample)];
+%     P = polyfit(z_fit,x_fit,1);
+%     xlin = 1:1:5;
+%     ylin = P(1)*xlin+P(2);
+%     title(['fitted slope: ' num2str(P(1))])
+%     plot(xlin,ylin,'m-.', 'LineWidth', 2);
+%     hold off;
     
     % truncate
-    if (z_fit(1) > a)
-       cmp = z_fit <= a;
-       temp = find(cmp);
-       start_sample = temp(1);
-       x_fit = x_fit(start_sample:end); % truncate
-       z_fit = z_fit(start_sample:end); % truncate
-       [x_fit, z_fit] = scale_xy(x_fit, z_fit, a, b);
-    end
+    [z_fit,x_fit,zxgrad] = truncate_data(z_fit,x_fit,y_fit,num);
+    new_len = size(z_fit,1);
+    hold on;
+    plot(z_fit,x_fit,'-og', 'LineWidth',2);
     
-    plot(z_fit,x_fit, '-og', 'LineWidth', 3);
+    P = polyfit(z_fit,x_fit,1);
+    xlin = 1:1:5;
+    ylin = P(1)*xlin+P(2);
+    title(['fitted slope: ' num2str(P(1))])
+    plot(xlin,ylin,'r-.');
+    
+    slope = P(1);
+    if (slope < -0.5 && slope > -1)
+        % rotate CW s.t. slope = vertical
+        angle = atan(1/slope) * 180/pi / 2;
+        print = ['letter: ' num2str(num) ', angle: ' num2str(angle)];
+        [x_fit,y_fit,z_fit] = rotate_y_axis(x_fit,y_fit,z_fit,angle);
+        [z_fit, x_fit] = scale_xy(z_fit, x_fit, a, b);
+        plot(z_fit, x_fit, '-om', 'LineWidth', 2);
+        P = polyfit(z_fit,x_fit,1);
+        xlin = 1:1:5;
+        ylin = P(1)*xlin+P(2);
+%         title(['fitted slope: ' num2str(P(1)) ', angle: ' num2str(angle)])
+        plot(xlin,ylin,'-r', 'LineWidth', 2);
+    elseif (slope > 0.2 && slope < 0.4)
+        % rotate CCW
+        angle = atan(1/slope) * 180/pi / 2;
+        print = ['letter: ' num2str(num) ', angle: ' num2str(angle)]
+        [x_fit,y_fit,z_fit] = rotate_y_axis(x_fit,y_fit,z_fit,angle);
+        [z_fit, x_fit] = scale_xy(z_fit, x_fit, a, b);
+        plot(z_fit, x_fit, '-om', 'LineWidth', 2);
+        P = polyfit(z_fit,x_fit,1);
+        xlin = 1:1:5;
+        ylin = P(1)*xlin+P(2);
+%         title(['fitted slope: ' num2str(P(1)) ', angle: ' num2str(angle)])
+        plot(xlin,ylin,'-r', 'LineWidth', 2);
+    end
     hold off;
+    
+%     hold off;
+%     figure; title(['letter: ' num2str(num)]); hold on; grid on;
+%     plot(zxgrad, '-ob');
+%     hold off;
+    
 %     before_resampling = ['num = ' num2str(num), '; len = ' num2str(size(x_fit,1))]
-    init_len = size(x_fit,1);
+    
     if (init_len < 15)
         chaincode = [];
         return;
     end
     
     [z_fit,x_fit] = normalize_char(z_fit,x_fit,num);
+    
+    zxgrad = gradient(x_fit) ./ gradient(z_fit);
+%     figure; hold on; title(['letter: ' num2str(num)]); grid on;
+%     subplot(2,2,3);
+%     plot(zxgrad, '-ob');
+%     hold off;
+%     figure; hold on; title(['letter: ' num2str(num)]); grid on;
+%     subplot(2,2,4);
+%     h = histogram(zxgrad);
+%     hold off;
+    
 %     zx_dist = calc_dist(z_fit,x_fit)
 
     p1 = size(x_fit,1);
@@ -262,6 +199,79 @@ function [chaincode,init_len] = process_data(q, num)
     chaincode = chain_code(z_fit,x_fit);
     
 
+end
+
+function [ret_x,ret_y,xygrad] = truncate_data(x,y,z,num, a, b)
+    start = x(1);
+    if (start < 2.5) % new letter
+        xgrad = gradient(x);
+        cmp = xgrad < 0.02;
+        temp = find(cmp);
+        new_start = temp(1);
+        x = x(new_start:end);
+        y = y(new_start:end);
+        [x, y] = scale_xy(x, y, 1, 5);
+        
+        start = x(1);
+        if (start > x(end) && x(end) > 3)
+            cmp = x < x(end);
+            temp = find(cmp);
+            if (size(temp,1) > 0)
+                new_start = temp(1);
+%                 print = num
+                x = x(new_start:end);
+                y = y(new_start:end);
+                [x, y] = scale_xy(x, y, 1, 5);
+            end
+        end
+        
+        xgrad = gradient(x);
+        ygrad = gradient(y);
+        xcmp = xgrad < 0;
+        ycmp = ygrad < 0;
+        xtemp = find(~xcmp);
+        ytemp = find(~ycmp);
+        temp = setxor(xtemp,ytemp);
+        if (size(temp,1) > 0)
+            new_start = temp(1);
+%             print2 = num
+            x = x(new_start:end);
+            y = y(new_start:end);
+            [x, y] = scale_xy(x, y, 1, 5);
+        end
+        
+        xygrad = ygrad ./ xgrad;
+        
+        ret_x = x;
+        ret_y = y;
+        return;
+    end
+    % new word   
+    
+    xlen = size(x,1);
+    th = 60;
+    if(xlen > th)
+        x = x(xlen-th:end);
+        y = y(xlen-th:end);
+        [x, y] = scale_xy(x, y, 1, 5);
+    end
+    
+    xgrad = gradient(x);
+    cmp = xgrad > -0.02;
+    temp = find(cmp);
+    new_start = temp(1);
+    x = x(new_start:end);
+    y = y(new_start:end);
+    [x, y] = scale_xy(x, y, 1, 5);
+    
+    print = ['letter: ' num2str(num) ', new length: ' num2str(size(x,1))];
+    
+    xgrad = gradient(x);
+    ygrad = gradient(y);
+    xygrad = ygrad ./ xgrad;
+
+    ret_x = x;
+    ret_y = y;
 end
 
 function chaincode = chain_code(x,y,num) % parameterizable by # of directions
@@ -356,6 +366,23 @@ end
 function [x_scaled,y_scaled] = scale_xy(x,y,a,b)
     x_scaled = (b - a) .* (x - min(x)) ./ (max(x) - min(x)) + a;
     y_scaled = (b - a) .* (y - min(y)) ./ (max(y) - min(y)) + a;
+end
+
+function [ret_x,ret_y,ret_z] = rotate_y_axis(x_fit,y_fit,z_fit,angle)
+    % ROTATION y-AXIS
+    R = roty(angle);
+    Ar_mat = [];
+    for i = 1:1:size(x_fit,1)
+        Ab(1,1) = x_fit(i);
+        Ab(2,1) = y_fit(i);
+        Ab(3,1) = z_fit(i);
+        Ar = (R*Ab).';
+        Ar_mat = [Ar_mat; Ar];  
+    end
+    
+    ret_x = Ar_mat(:,1);
+    ret_y = Ar_mat(:,2);
+    ret_z = Ar_mat(:,3);
 end
 
 function R = rotx(degrees)
