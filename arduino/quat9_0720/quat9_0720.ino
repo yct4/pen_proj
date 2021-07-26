@@ -50,12 +50,14 @@ void setup() {
   gyr_th_y = 1000;
   gyr_th_z = 1000;
 
-  Serial.print("gyr threshold: ");
-  Serial.print(gyr_th_x);
-  Serial.print(" , ");
-  Serial.print(gyr_th_y);
-  Serial.print(" , ");
-  Serial.println(gyr_th_z);
+  Serial.println("x,y,z");
+
+  //Serial.print("gyr threshold: ");
+  //Serial.print(gyr_th_x);
+  //Serial.print(" , ");
+  //Serial.print(gyr_th_y);
+  //Serial.print(" , ");
+  //Serial.println(gyr_th_z);
 } // endfunction setup
 
 void loop() {
@@ -70,6 +72,9 @@ void loop() {
             myICM.getAGMT(); // poll IMU
 
             if ((abs(myICM.agmt.gyr.axes.x) > gyr_th_x) || (abs(myICM.agmt.gyr.axes.y) > gyr_th_y) || (abs(myICM.agmt.gyr.axes.z) > gyr_th_z)) {
+               //Serial.print(myICM.agmt.acc.axes.x); Serial.print(",");
+              // Serial.print(myICM.agmt.acc.axes.y); Serial.print(",");
+               //Serial.println(myICM.agmt.acc.axes.z);
                if (counter > 10) {
                   Serial.print("#!"); Serial.print(",");
                   Serial.print("zero-counter: "); Serial.println(counter);
@@ -78,17 +83,19 @@ void loop() {
                //   Serial.print("#!,gyr_z: ");
                //   Serial.println(myICM.agmt.gyr.axes.z);
                //}
-               if (myICM.agmt.gyr.axes.z > 8000) {
-                  Serial.println("0,0,0");
-               } else {
+               //if (myICM.agmt.gyr.axes.z > 6000) {
+                  //Serial.println("0,0,0");
+               //} //else {
                   Serial.print(data.Quat9.Data.Q1); Serial.print(",");
                   Serial.print(data.Quat9.Data.Q2); Serial.print(",");
-                  Serial.println(data.Quat9.Data.Q3); // dont use println if want to print raw values too
-               }
+                  Serial.print(data.Quat9.Data.Q3); // dont use println if want to print raw values too
+                  Serial.print(","); Serial.println(myICM.agmt.acc.axes.x);
+               //}
                counter = 0;
             } else {
                counter++;
             }
+            //
          } // myICM.dataReady
       } // (data.header & DMP_header_bitmap_Quat9) > 0
    } // Was valid data available?

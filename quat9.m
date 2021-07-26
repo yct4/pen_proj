@@ -1,8 +1,11 @@
 % returns chaincodes, each row vector is a chaincode
 close all;
 clear all;
-filename = 'test_single_letter_5';
-output = quat9(filename);
+filename = 'ax_data3';
+% output = quat9(filename);
+ccode = [0;1;2;3;4;5;6;0];
+ccode = [0;1;2;3;4;5;6;7;8;9;10;11;12;13;14;15];
+chaincode2trajectory(ccode,16)
 
 function chaincodes = quat9(file)
     close all;
@@ -17,10 +20,10 @@ function chaincodes_ret = process_file(path)
     q_in = [];
     chaincodes = [];
     init_lens = [];
-    new_lens = [];
-    g_input = readtable(path);
-
-    M = table2array(g_input);
+    zero_cnts = [];
+    g_input = readmatrix(path); %readtable(path);
+    M = g_input;
+    %M = table2array(g_input);
     idx = all(isnan(M),2);
     idr = diff(find([1;diff(idx);1]));
     D = mat2cell(M,idr(:),size(M,2));
@@ -42,12 +45,13 @@ function chaincodes_ret = process_file(path)
         q2 = quat_in(1:end,2);
         q3 = quat_in(1:end,3);
         q0 = sqrt(abs(1.0 - ((q1.^2) + (q2.^2) + (q3.^2))));
-        quat_in = [q0 q1 q2 q3];
+        acc_x = in(1:end,4);
+        quat_in = [q0 q1 q2 q3 acc_x];
         
 %         print = ['num = ' num2str(j) '; len = ' num2str(size(q1,1))] % letter number and length
-        [chaincode, init_len, new_len] = process_data(quat_in, j);
+        [chaincode, init_len, zero_cnt] = process_data(quat_in, j);
         init_lens = [init_lens; init_len];
-        new_lens = [new_lens; new_len];
+        zero_cnts = [zero_cnts; zero_cnt];
         
         valid_chaincode = init_len > 15; % at least 15 samples long
         if (valid_chaincode)
@@ -56,12 +60,12 @@ function chaincodes_ret = process_file(path)
             j = j - 1;
         end
         
-        q_in = [q_in; q0 q1 q2 q3];
+        q_in = [q_in; q0 q1 q2 q3 acc_x];
     end
     
     chaincodes_ret = chaincodes;
     chaincodes_len = size(chaincodes, 1)
-    lengths = [[1:1:size(init_lens,1)].', init_lens, new_lens]
+    lengths = [[1:1:size(init_lens,1)].', init_lens, zero_cnts]
     process_data(q_in, -1); % whole word
 end
 
@@ -73,6 +77,7 @@ function [chaincode,init_len,new_len] = process_data(q, num)
     qx = q(:,2);
     qy = q(:,3);
     qz = q(:,4);
+    ax = q(:,5);
 
     angle = 2 * acos(qw);
     x = qx ./ sqrt(1-qw.^2);
@@ -98,6 +103,7 @@ function [chaincode,init_len,new_len] = process_data(q, num)
     x_fit = smooth(x, degree);
     y_fit = smooth(y, degree);
     z_fit = smooth(z, degree);
+    ax = smooth(ax,degree);
     
     % ROTATE Y-AXIS
     [x_fit,y_fit,z_fit] = rotate_y_axis(x_fit,y_fit,z_fit,-45); % angle in degrees
@@ -109,173 +115,71 @@ function [chaincode,init_len,new_len] = process_data(q, num)
       
     init_len = size(x_fit,1);
     
-    figure; hold on; title(['letter: ' num2str(num) ', num points: ' num2str(init_len)]); grid on;
-    subplot(1,2,1);
-    plot(z_fit, '-og');
-    subplot(1,2,2); hold on;
+    len = init_len;
+    ax_scaled = (b - a) .* (ax - min(ax)) ./ (max(ax) - min(ax)) + a;
+    
+    figure;
+    subplot(1,2,1); hold on; grid on;
+    title(['letter: ' num2str(num) ', num points: ' num2str(init_len)]);
+    plot(z_fit, '-ob', 'LineWidth', 2);
+    plot(x_fit, '-or', 'LineWidth', 2);
+    plot(ax_scaled, '-og', 'LineWidth', 2);
+%     hold off;
+    subplot(1,2,2); hold on; grid on;
     plot(z_fit,x_fit, '-ob', 'LineWidth', 2);
     
-%     P = polyfit(z_fit,x_fit,1);
-%     xlin = 1:1:5;
-%     ylin = P(1)*xlin+P(2);
-%     title(['fitted slope: ' num2str(P(1))])
-%     plot(xlin,ylin,'m-.', 'LineWidth', 2);
-%     hold off;
-    
     % truncate
-    [z_fit,x_fit,zxgrad] = truncate_data(z_fit,x_fit,y_fit,num);
+    [z_fit,x_fit] = truncate_char(z_fit,x_fit,ax_scaled,num);
     new_len = size(z_fit,1);
-    hold on;
-    plot(z_fit,x_fit,'-og', 'LineWidth',2);
+    title(['letter: ' num2str(num) ', num points: ' num2str(init_len) ', new len: ' num2str(new_len)]);
+    subplot(1,2,2); hold on; grid on;
+    plot(z_fit,x_fit, '-og', 'LineWidth', 2);
     
-    P = polyfit(z_fit,x_fit,1);
-    xlin = 1:1:5;
-    ylin = P(1)*xlin+P(2);
-    title(['fitted slope: ' num2str(P(1))])
-    plot(xlin,ylin,'r-.');
+    [z_fit,x_fit] = normalize_char(z_fit,x_fit);
     
-    slope = P(1);
-    if (slope < -0.5 && slope > -1)
-        % rotate CW s.t. slope = vertical
-        angle = atan(1/slope) * 180/pi / 2;
-        print = ['letter: ' num2str(num) ', angle: ' num2str(angle)];
-        [x_fit,y_fit,z_fit] = rotate_y_axis(x_fit,y_fit,z_fit,angle);
-        [z_fit, x_fit] = scale_xy(z_fit, x_fit, a, b);
-        plot(z_fit, x_fit, '-om', 'LineWidth', 2);
-        P = polyfit(z_fit,x_fit,1);
-        xlin = 1:1:5;
-        ylin = P(1)*xlin+P(2);
-%         title(['fitted slope: ' num2str(P(1)) ', angle: ' num2str(angle)])
-        plot(xlin,ylin,'-r', 'LineWidth', 2);
-    elseif (slope > 0.2 && slope < 0.4)
-        % rotate CCW
-        angle = atan(1/slope) * 180/pi / 2;
-        print = ['letter: ' num2str(num) ', angle: ' num2str(angle)]
-        [x_fit,y_fit,z_fit] = rotate_y_axis(x_fit,y_fit,z_fit,angle);
-        [z_fit, x_fit] = scale_xy(z_fit, x_fit, a, b);
-        plot(z_fit, x_fit, '-om', 'LineWidth', 2);
-        P = polyfit(z_fit,x_fit,1);
-        xlin = 1:1:5;
-        ylin = P(1)*xlin+P(2);
-%         title(['fitted slope: ' num2str(P(1)) ', angle: ' num2str(angle)])
-        plot(xlin,ylin,'-r', 'LineWidth', 2);
-    end
-    hold off;
-    
-%     hold off;
-%     figure; title(['letter: ' num2str(num)]); hold on; grid on;
-%     plot(zxgrad, '-ob');
-%     hold off;
-    
-%     before_resampling = ['num = ' num2str(num), '; len = ' num2str(size(x_fit,1))]
-    
-    if (init_len < 15)
-        chaincode = [];
-        return;
-    end
-    
-    [z_fit,x_fit] = normalize_char(z_fit,x_fit,num);
-    
-    zxgrad = gradient(x_fit) ./ gradient(z_fit);
-%     figure; hold on; title(['letter: ' num2str(num)]); grid on;
-%     subplot(2,2,3);
-%     plot(zxgrad, '-ob');
-%     hold off;
-%     figure; hold on; title(['letter: ' num2str(num)]); grid on;
-%     subplot(2,2,4);
-%     h = histogram(zxgrad);
-%     hold off;
-    
-%     zx_dist = calc_dist(z_fit,x_fit)
-
-    p1 = size(x_fit,1);
-%     resample1 = ['num = ' num2str(num), '; len = ' num2str(p1)]
-    % trajectory that will be used to derive chaincode
-%     figure; hold on; grid on;
-%     plot(z_fit,x_fit,'o-m', 'LineWidth', 2); 
-%     hold off;
-%     zx_dist = calc_dist(z_fit,x_fit) % distance isnt perfectly uniformly spaced but mostly uniform
-
     chaincode = chain_code(z_fit,x_fit);
-    
-
+    hold off;
 end
 
-function [ret_x,ret_y,xygrad] = truncate_data(x,y,z,num, a, b)
-    start = x(1);
-    if (start < 2.5) % new letter
-        xgrad = gradient(x);
-        cmp = xgrad < 0.02;
-        temp = find(cmp);
-        new_start = temp(1);
-        x = x(new_start:end);
-        y = y(new_start:end);
-        [x, y] = scale_xy(x, y, 1, 5);
-        
-        start = x(1);
-        if (start > x(end) && x(end) > 3)
-            cmp = x < x(end);
-            temp = find(cmp);
-            if (size(temp,1) > 0)
-                new_start = temp(1);
-%                 print = num
-                x = x(new_start:end);
-                y = y(new_start:end);
-                [x, y] = scale_xy(x, y, 1, 5);
-            end
-        end
-        
-        xgrad = gradient(x);
-        ygrad = gradient(y);
-        xcmp = xgrad < 0;
-        ycmp = ygrad < 0;
-        xtemp = find(~xcmp);
-        ytemp = find(~ycmp);
-        temp = setxor(xtemp,ytemp);
-        if (size(temp,1) > 0)
-            new_start = temp(1);
-%             print2 = num
-            x = x(new_start:end);
-            y = y(new_start:end);
-            [x, y] = scale_xy(x, y, 1, 5);
-        end
-        
-        xygrad = ygrad ./ xgrad;
-        
-        ret_x = x;
-        ret_y = y;
-        return;
-    end
-    % new word   
-    
-    xlen = size(x,1);
-    th = 60;
-    if(xlen > th)
-        x = x(xlen-th:end);
-        y = y(xlen-th:end);
-        [x, y] = scale_xy(x, y, 1, 5);
-    end
-    
-    xgrad = gradient(x);
-    cmp = xgrad > -0.02;
+function [ret_x,ret_y] = truncate_char(x,y,ax,num)
+    [ax_max, ax_prom] = islocalmax(ax);
+    cmp = ax_prom > 0;
     temp = find(cmp);
-    new_start = temp(1);
-    x = x(new_start:end);
-    y = y(new_start:end);
-    [x, y] = scale_xy(x, y, 1, 5);
+    subplot(1,2,1);
+    yyaxis right;
+    plot(temp, ax_prom(temp), '.m', 'MarkerSize', 20);
     
-    print = ['letter: ' num2str(num) ', new length: ' num2str(size(x,1))];
+    cmp = ax_prom > 0.2; %.4
+    temp = find(cmp);
+    cmp2 = temp > 10;
+    temp2 = find(cmp2);
+    if (size(temp2,1) < 1)
+       ret_x = x;
+       ret_y = y;
+       return;
+    end
+    start_sample = temp(temp2(1));
+    % new word
+    if(x(1) > 3.5 && size(temp2,1) > 1)
+        start_sample = temp(temp2(2));
+%         print1 = [num, size(x,1) - start_sample + 1]
+        if ((size(x,1) - start_sample + 1) > 50 && size(temp2,1) > 2)
+           start_sample = temp(temp2(3));
+%            print2 = num
+        end
+    end
     
-    xgrad = gradient(x);
-    ygrad = gradient(y);
-    xygrad = ygrad ./ xgrad;
-
-    ret_x = x;
-    ret_y = y;
+    yyaxis left;
+    plot(start_sample, [x(start_sample) ax(start_sample)], 'xm', 'MarkerSize', 20, 'LineWidth', 2);
+    
+    % truncate and scale
+    x_fit = x(start_sample:end); % truncate
+    y_fit = y(start_sample:end); % truncate
+    [ret_x, ret_y] = scale_xy(x_fit, y_fit, 1, 5);
 end
 
-function chaincode = chain_code(x,y,num) % parameterizable by # of directions
-    num_dir = 8; % number of directions, assumes divisible by 4 
+function chaincode = chain_code(x,y) % parameterizable by # of directions
+    num_dir = 16; % number of directions, assumes divisible by 4 
     slice_angle = 2*pi / num_dir;
 
     x_dist = x(2:end) - x(1:end-1);
@@ -286,14 +190,58 @@ function chaincode = chain_code(x,y,num) % parameterizable by # of directions
     % upper half
     cmp = y_dist >= 0;
     temp = find(cmp);
-    chaincode(temp) = mod(floor(angle(temp) / slice_angle),8);
+    chaincode(temp) = mod(floor(angle(temp) / slice_angle),num_dir);
     
     % lower half
     cmp = y_dist < 0;
     temp = find(cmp);
-    chaincode(temp) = mod(4 + floor(angle(temp) / slice_angle),8);
+    chaincode(temp) = mod(num_dir/2 + floor(angle(temp) / slice_angle),num_dir);
+    
+    chaincode2trajectory(chaincode,num_dir);
     
 %     size(chaincode)
+end
+
+function chaincode2trajectory(ccode,ndir)
+    ndir_div4 = ndir/4;
+    y1 = 1;
+    x1 = 1;
+    ploty = y1;
+    plotx = x1;
+    for num = ccode.'
+        signy = 1;
+        signx = 1;
+        if (num >= ndir/2)
+            signx = -1;
+        end
+        if ((num >= ndir_div4) && (num <= (3*ndir_div4)))
+            signy = -1;
+        end
+        m = mod(num, ndir_div4);
+        if (m == 0)
+            if (num == 0 || num == 2*ndir_div4)
+                da = 0;
+                db = 1;
+            elseif (num == ndir_div4 || num == 3*ndir_div4)
+                da = 1;
+                db = 0; 
+            end
+        else 
+            tan_angle = 2*pi / ndir;
+            slope = tan(m*tan_angle);
+        
+            % solve for unsigned da and db
+            da = sqrt(slope^2 / (1+slope^2));
+            db = sqrt(1-da^2);
+        end
+        
+        y1 = y1 + db*signy;
+        x1 = x1 + da*signx;
+        ploty = [ploty; y1];
+        plotx = [plotx; x1];
+    end
+    [plotx, ploty] = scale_xy(plotx, ploty, 1, 5);    
+    plot(plotx, ploty, '-or', 'LineWidth', 2);
 end
 
 function [ret_x,ret_y] = normalize_char(x,y,num)
@@ -303,7 +251,8 @@ function [ret_x,ret_y] = normalize_char(x,y,num)
     pt_dist = sum(xy_dist) / (resample_len);
 
     [z_norm,x_norm] = resample_char(x, y, pt_dist, resample_len);
-%     plot(z_norm,x_norm, '-om', 'LineWidth', 1);
+    subplot(1,2,2);
+    plot(z_norm,x_norm, '-om', 'LineWidth', 1);
     
     z_temp = spline(1:1:size(z_norm,1), z_norm);
     x_temp = spline(1:1:size(x_norm,1), x_norm);
@@ -363,7 +312,7 @@ function [ret_x, ret_y] = resample_char(x,y,S,I)
     ret_y = flip(ret_y);
 end
 
-function [x_scaled,y_scaled] = scale_xy(x,y,a,b)
+function [x_scaled,y_scaled] = scale_xy(x,y,a,b) 
     x_scaled = (b - a) .* (x - min(x)) ./ (max(x) - min(x)) + a;
     y_scaled = (b - a) .* (y - min(y)) ./ (max(y) - min(y)) + a;
 end
