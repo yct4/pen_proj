@@ -2,10 +2,13 @@
 close all;
 clear all;
 filename = 'ax_data3';
-% output = quat9(filename);
-ccode = [0;1;2;3;4;5;6;0];
-ccode = [0;1;2;3;4;5;6;7;8;9;10;11;12;13;14;15];
-chaincode2trajectory(ccode,16)
+output = quat9(filename);
+% ccode = [0;1;2;3;4;5;6;0;7];
+% ccode = [0;1;2;3;4;5;6;7;8;9;10;11;12;13;14;15];
+% ccode = [12;13;14;15;0];
+% ccode = [0;1;2;3;4;5;6;7;8;9;10;11;12;13;14;15;16;17;18;19];
+% ccode = 0:1:23;
+% chaincode2trajectory(ccode.',24)
 
 function chaincodes = quat9(file)
     close all;
@@ -66,7 +69,7 @@ function chaincodes_ret = process_file(path)
     chaincodes_ret = chaincodes;
     chaincodes_len = size(chaincodes, 1)
     lengths = [[1:1:size(init_lens,1)].', init_lens, zero_cnts]
-    process_data(q_in, -1); % whole word
+%     process_data(q_in, -1); % whole word
 end
 
 function [chaincode,init_len,new_len] = process_data(q, num)
@@ -179,7 +182,7 @@ function [ret_x,ret_y] = truncate_char(x,y,ax,num)
 end
 
 function chaincode = chain_code(x,y) % parameterizable by # of directions
-    num_dir = 16; % number of directions, assumes divisible by 4 
+    num_dir = 32; % number of directions, assumes divisible by 4 
     slice_angle = 2*pi / num_dir;
 
     x_dist = x(2:end) - x(1:end-1);
@@ -226,22 +229,33 @@ function chaincode2trajectory(ccode,ndir)
                 da = 1;
                 db = 0; 
             end
+            y1 = y1 + db*signy;
+            x1 = x1 + da*signx;
         else 
-            tan_angle = 2*pi / ndir;
+            tan_angle = 2*pi / ndir; % (pi/2) / (ndir/4)
+            if (signy*signx < 0)
+               m = ndir_div4 - m;
+            end
             slope = tan(m*tan_angle);
         
             % solve for unsigned da and db
             da = sqrt(slope^2 / (1+slope^2));
             db = sqrt(1-da^2);
+            if (signy*signx < 0)
+                y1 = y1 + db*signy;
+                x1 = x1 + da*signx;
+                num;
+            else
+                y1 = y1 + db*signy;
+                x1 = x1 + da*signx;
+            end
         end
-        
-        y1 = y1 + db*signy;
-        x1 = x1 + da*signx;
         ploty = [ploty; y1];
         plotx = [plotx; x1];
     end
     [plotx, ploty] = scale_xy(plotx, ploty, 1, 5);    
     plot(plotx, ploty, '-or', 'LineWidth', 2);
+    xy_dist = calc_dist(plotx,ploty)
 end
 
 function [ret_x,ret_y] = normalize_char(x,y,num)
