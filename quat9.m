@@ -1,8 +1,9 @@
 % returns chaincodes, each row vector is a chaincode
-close all;
-clear all;
-filename = 'ax_data3';
-output = quat9(filename);
+% close all;
+% clear all;
+% filename = 'ax_data3';
+% output = quat9(filename);
+
 % ccode = [0;1;2;3;4;5;6;0;7];
 % ccode = [0;1;2;3;4;5;6;7;8;9;10;11;12;13;14;15];
 % ccode = [12;13;14;15;0];
@@ -255,7 +256,7 @@ function chaincode2trajectory(ccode,ndir)
     end
     [plotx, ploty] = scale_xy(plotx, ploty, 1, 5);    
     plot(plotx, ploty, '-or', 'LineWidth', 2);
-    xy_dist = calc_dist(plotx,ploty)
+%     xy_dist = calc_dist(plotx,ploty)
 end
 
 function [ret_x,ret_y] = normalize_char(x,y,num)
