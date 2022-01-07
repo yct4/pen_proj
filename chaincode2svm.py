@@ -102,6 +102,7 @@ print(f'correctly classified: {num_correct}')
 #print(fit_svm)
 #print(dec)
 #print(dec.shape[1])
+np.set_printoptions(linewidth=np.inf)
 print(f'prediction: {pred}')
 print(f'actual    : {classes_test}')
 

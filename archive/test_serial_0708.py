@@ -6,8 +6,6 @@ import matlab.engine as matlab
 import re
 
 np.set_printoptions(threshold=sys.maxsize)
-np.set_printoptions(linewidth=np.inf)
-
 arduino = serial.Serial(port = 'COM5', baudrate = 38422, timeout = .1)
 eng = matlab.start_matlab()
 
@@ -46,7 +44,7 @@ while True:
 
     # py2matlab
     print("running matlab to get chaincode")
-    chaincodes = np.array(eng.quat9(value,nargout=1)).astype(int)
+    chaincodes = np.array(eng.quat9_0705(value,nargout=1)).astype(int)
     chaincodes_str = re.sub('[\[\]]', '', np.array2string(chaincodes, separator=','))
     print("printing chaincodes")
     print(chaincodes_str)
